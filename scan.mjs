@@ -42,6 +42,19 @@ function detectApi(company) {
 
   const url = company.careers_url || '';
 
+  // Workday (e.g., https://gapinc.wd1.myworkdayjobs.com/GAPINC)
+  const workdayMatch = url.match(/([a-z0-9]+)\.wd(\d+)\.myworkdayjobs\.com\/([^/?#]+)/i);
+  if (workdayMatch) {
+    const [, companySlug, shard, site] = workdayMatch;
+    return {
+      type: 'workday',
+      url: `https://${companySlug}.wd${shard}.myworkdayjobs.com/wday/cxs/${companySlug}/${site}/jobs`,
+      companySlug,
+      shard,
+      site,
+    };
+  }
+
   // Ashby
   const ashbyMatch = url.match(/jobs\.ashbyhq\.com\/([^/?#]+)/);
   if (ashbyMatch) {
@@ -104,7 +117,18 @@ function parseLever(json, companyName) {
   }));
 }
 
-const PARSERS = { greenhouse: parseGreenhouse, ashby: parseAshby, lever: parseLever };
+function parseWorkday(json, companyName, apiInfo) {
+  const jobs = json.jobPostings || [];
+  const baseUrl = `https://${apiInfo.companySlug}.wd${apiInfo.shard || 1}.myworkdayjobs.com`;
+  return jobs.map(j => ({
+    title: j.title || '',
+    url: baseUrl + (j.externalPath || ''),
+    company: companyName,
+    location: j.locationsText || '',
+  }));
+}
+
+const PARSERS = { greenhouse: parseGreenhouse, ashby: parseAshby, lever: parseLever, workday: parseWorkday };
 
 // ── Fetch with timeout ──────────────────────────────────────────────
 
@@ -114,6 +138,30 @@ async function fetchJson(url) {
   try {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Workday requires POST with JSON body
+async function fetchWorkdayJobs(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000); // 30s for Workday
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ appliedFacets: {}, limit: 20, offset: 0, searchText: '' }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '');
+      throw new Error(`HTTP ${res.status}: ${errorText.substring(0, 100)}`);
+    }
     return await res.json();
   } finally {
     clearTimeout(timer);
@@ -292,8 +340,15 @@ async function main() {
   const tasks = targets.map(company => async () => {
     const { type, url } = company._api;
     try {
-      const json = await fetchJson(url);
-      const jobs = PARSERS[type](json, company.name);
+      // Workday requires POST, others use GET
+      const json = type === 'workday' 
+        ? await fetchWorkdayJobs(url) 
+        : await fetchJson(url);
+      
+      // Pass apiInfo for Workday parser
+      const jobs = type === 'workday' 
+        ? PARSERS[type](json, company.name, company._api)
+        : PARSERS[type](json, company.name);
       totalFound += jobs.length;
 
       for (const job of jobs) {
