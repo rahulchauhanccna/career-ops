@@ -57,6 +57,46 @@ Para empresas con API pública o feed estructurado, usar la respuesta JSON/XML c
 
 Los `search_queries` con `site:` filters cubren portales de forma transversal (todos los Ashby, todos los Greenhouse, etc.). Útil para descubrir empresas NUEVAS que aún no están en `tracked_companies`, pero los resultados pueden estar desfasados.
 
+### Nivel 4 — LinkedIn Jobs (ESPECÍFICO)
+
+LinkedIn es una fuente importante de ofertas pero requiere manejo especial:
+
+**LinkedIn Job Search API (guest endpoint):**
+- URL pattern: `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={query}&location={location}&f_WRA={remote}&start={offset}`
+- No requiere autenticación
+- Retorna HTML con lista de trabajos
+
+**Parámetros de búsqueda:**
+- `keywords`: Términos de búsqueda (URL encoded)
+- `location`: Ubicación (e.g., "San Francisco", "Remote")
+- `f_WRA`: Filtro de trabajo remoto (`true` para remoto)
+- `f_JT`: Tipo de trabajo (`F` full-time, `P` part-time, `C` contract)
+- `f_E`: Nivel de experiencia (`2` mid-senior, `3` director, `4` executive)
+- `start`: Offset para paginación (0, 25, 50, ...)
+
+**Estrategia de extracción:**
+1. Construir URL de búsqueda con keywords del `title_filter.positive`
+2. Usar Playwright para navegar y obtener snapshot
+3. Parsear cada job card:
+   - Title: `.base-search-card__title`
+   - Company: `.base-search-card__subtitle`
+   - Location: `.job-search-card__location`
+   - URL: `a.base-card__full-link` href attribute
+   - Job ID: extraer de la URL (`/jobs/view/{job-id}`)
+4. Para cada job, verificar si ya está en scan-history
+5. Añadir nuevos a pipeline.md
+
+**Limitaciones:**
+- LinkedIn muestra máximo ~1000 resultados por búsqueda
+- Los resultados pueden variar según sesión/geolocalización
+- El guest endpoint puede tener rate limits
+- Si se detecta bloqueo, pausar y reintentar más tarde
+
+**Ejemplo de URL de búsqueda:**
+```
+https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=AI%20Engineer&location=United%20States&f_WRA=true&f_JT=F&start=0
+```
+
 **Prioridad de ejecución:**
 1. Nivel 1: Playwright → todas las `tracked_companies` con `careers_url`
 2. Nivel 2: API → todas las `tracked_companies` con `api:`

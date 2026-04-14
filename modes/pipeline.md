@@ -38,9 +38,34 @@ Procesa URLs de ofertas acumuladas en `data/pipeline.md`. El usuario agrega URLs
 3. **WebSearch (último recurso):** Buscar en portales secundarios que indexan el JD.
 
 **Casos especiales:**
-- **LinkedIn**: Puede requerir login → marcar `[!]` y pedir al usuario que pegue el texto
-- **PDF**: Si la URL apunta a un PDF, leerlo directamente con Read tool
-- **`local:` prefix**: Leer el archivo local. Ejemplo: `local:jds/linkedin-pm-ai.md` → leer `jds/linkedin-pm-ai.md`
+
+### LinkedIn Jobs
+LinkedIn URLs can be in multiple formats:
+- `https://www.linkedin.com/jobs/view/{job-id}` (standard)
+- `https://linkedin.com/jobs/view/{job-id}` (short)
+- `https://www.linkedin.com/jobs/collections/recommended/?currentJobId={job-id}` (from collections)
+
+**Extraction strategy:**
+1. **Playwright first** → Navigate to URL, take snapshot. LinkedIn often shows job details without login for public postings.
+2. **If login wall detected** (redirect to login page, "Sign in to view" message):
+   - Try the public job API: `https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job-id}`
+   - Extract job title, company, location, description from the response
+3. **If still blocked**:
+   - Mark as `[!]` with note: "LinkedIn requires login — paste JD text"
+   - Save placeholder in `jds/linkedin-{job-id}.md` with URL for reference
+   - Ask user to paste the JD content
+
+**LinkedIn job page parsing:**
+- Title: `.job-details-jobs-unified-top-card__job-title` or `<h1>` with class containing `job-title`
+- Company: `.job-details-jobs-unified-top-card__company-name` or similar
+- Location: `.job-details-jobs-unified-top-card__primary-description-container`
+- Description: `.jobs-description-content` or `.job-details-jobs-unified-top-card__job-description`
+
+### PDF
+Si la URL apunta a un PDF, leerlo directamente con Read tool
+
+### `local:` prefix
+Leer el archivo local. Ejemplo: `local:jds/linkedin-pm-ai.md` → leer `jds/linkedin-pm-ai.md`
 
 ## Numeración automática
 

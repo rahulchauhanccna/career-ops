@@ -292,6 +292,23 @@ search_queries:
     query: 'site:news.ycombinator.com OR site:hnrss.org "AI Engineer" OR "Forward Deployed" OR "DevRel" OR "Founding Engineer" remote'
     enabled: true
 
+  # -- LinkedIn Jobs --
+  - name: LinkedIn — AI Engineer
+    query: 'site:linkedin.com/jobs "AI Engineer" OR "ML Engineer" OR "LLM Engineer" remote'
+    enabled: true
+
+  - name: LinkedIn — Solutions Architect AI
+    query: 'site:linkedin.com/jobs "Solutions Architect" AI OR ML OR "Machine Learning" remote'
+    enabled: true
+
+  - name: LinkedIn — Forward Deployed Engineer
+    query: 'site:linkedin.com/jobs "Forward Deployed" OR "Deployed Engineer" OR "Customer Engineer" AI'
+    enabled: true
+
+  - name: LinkedIn — Senior Backend Engineer
+    query: 'site:linkedin.com/jobs "Senior Backend Engineer" OR "Staff Engineer" OR "Principal Engineer" remote'
+    enabled: true
+
 # -- Tracked companies --
 # Companies whose career pages are checked directly.
 # scan_method: playwright (default), websearch, greenhouse_api
